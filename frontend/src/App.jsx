@@ -175,7 +175,7 @@ function HomePage({ onSelectApp }) {
             <FileSpreadsheet className="w-12 h-12 text-white" />
           </div>
           <h1 className="text-5xl font-bold text-white mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-            Portail de Traitement Excel
+            Outils MCO matériel
           </h1>
           <p className="text-gray-400 text-lg max-w-2xl mx-auto">
             Sélectionnez une application pour automatiser vos traitements de fichiers Excel
