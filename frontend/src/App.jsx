@@ -19,8 +19,8 @@ const APPS_CONFIG = [
   },
   {
     id: 'sales-analysis',
-    name: 'Analyse des Ventes',
-    description: 'Génération de rapports et analyses de ventes mensuelles',
+    name: 'ObsoMAT',
+    description: 'Aide à la génération de fiches obso',
     icon: TrendingUp,
     color: 'from-green-500 to-green-600',
     files: [
@@ -32,8 +32,8 @@ const APPS_CONFIG = [
   },
   {
     id: 'data-merge',
-    name: 'Fusion de Données',
-    description: 'Consolidation de plusieurs fichiers Excel en un seul',
+    name: 'Consolidation emplacements',
+    description: 'Blablabla',
     icon: Database,
     color: 'from-purple-500 to-purple-600',
     files: [
@@ -175,11 +175,8 @@ function HomePage({ onSelectApp }) {
             <FileSpreadsheet className="w-12 h-12 text-white" />
           </div>
           <h1 className="text-5xl font-bold text-white mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-            Portail de Traitement Excel
+            Outils MCO Matériel
           </h1>
-          <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-            Sélectionnez une application pour automatiser vos traitements de fichiers Excel
-          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -265,22 +262,60 @@ function AppProcessingPage({ app, onBack }) {
 
       clearInterval(progressInterval);
 
+      console.log('📡 Réponse reçue, status:', response.status);
+
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { detail: `Erreur HTTP ${response.status}` };
+        }
+        console.error('❌ Erreur API:', errorData);
         throw new Error(errorData.detail || 'Erreur lors du traitement');
       }
 
+      // Récupérer le nom du fichier depuis les headers de la réponse
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `resultat_${app.id}_${Date.now()}.xlsx`;
+      
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?(.+)"?/i);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      console.log('📄 Nom du fichier:', filename);
+
       const blob = await response.blob();
+      console.log('💾 Blob reçu, taille:', blob.size, 'bytes');
+      
       const url = window.URL.createObjectURL(blob);
       
       setProgress(100);
       setResult({
         url,
-        filename: `resultat_${app.id}_${Date.now()}.xlsx`
+        filename
       });
 
+      console.log('✅ Traitement terminé avec succès!');
+
     } catch (err) {
-      setError(err.message || 'Une erreur est survenue');
+      console.error('Erreur complète:', err);
+      
+      // Mieux gérer l'affichage de l'erreur
+      let errorMessage = 'Une erreur est survenue';
+      
+      if (err.message) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      } else if (err.detail) {
+        errorMessage = err.detail;
+      }
+      
+      setError(errorMessage);
     } finally {
       clearInterval(messageInterval);
       setIsProcessing(false);
