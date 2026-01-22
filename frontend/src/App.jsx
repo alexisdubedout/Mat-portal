@@ -14,7 +14,7 @@ const APPS_CONFIG = [
       { id: 'export', label: "Fichier d'export", accept: '.xlsx,.xls' }
     ],
     params: [
-      { id: 'export_date', label: "Date d'export", type: 'date', placeholder: 'jj/mm/aaaa' }
+      { id: 'export_date', label: "Date d'export", type: 'date', placeholder: '' }
     ]
   },
   {
