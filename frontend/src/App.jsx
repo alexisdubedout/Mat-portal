@@ -19,8 +19,8 @@ const APPS_CONFIG = [
   },
   {
     id: 'sales-analysis',
-    name: 'ObsoGMAT',
-    description: 'Aide aux fiches obso',
+    name: 'Analyse des Ventes',
+    description: 'Génération de rapports et analyses de ventes mensuelles',
     icon: TrendingUp,
     color: 'from-green-500 to-green-600',
     files: [
@@ -32,8 +32,8 @@ const APPS_CONFIG = [
   },
   {
     id: 'data-merge',
-    name: 'Consolidation emplacement',
-    description: 'Blablabla',
+    name: 'Fusion de Données',
+    description: 'Consolidation de plusieurs fichiers Excel en un seul',
     icon: Database,
     color: 'from-purple-500 to-purple-600',
     files: [
@@ -175,8 +175,11 @@ function HomePage({ onSelectApp }) {
             <FileSpreadsheet className="w-12 h-12 text-white" />
           </div>
           <h1 className="text-5xl font-bold text-white mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-            Outils MCO matériel
+            Portail de Traitement Excel
           </h1>
+          <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+            Sélectionnez une application pour automatiser vos traitements de fichiers Excel
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -187,7 +190,7 @@ function HomePage({ onSelectApp }) {
 
         <div className="mt-12 text-center">
           <p className="text-gray-500 text-sm">
-            💡 Tous les fichiers sont traités de manière sécurisée et supprimés immédiatement après traitement
+            💡 Astuce : Tous les fichiers sont traités de manière sécurisée et supprimés immédiatement après traitement
           </p>
         </div>
       </div>
@@ -232,18 +235,21 @@ function AppProcessingPage({ app, onBack }) {
     }, 3000);
 
     try {
+      // URL de l'API - utilise la variable d'environnement ou localhost par défaut
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      
       // Préparer FormData
       const formData = new FormData();
       
-      // Ajouter les fichiers
+      // Ajouter les fichiers avec la bonne convention de nommage
       Object.entries(files).forEach(([key, file]) => {
-        formData.append(key, file);
+        formData.append(`file_${key}`, file);
       });
       
       // Ajouter les paramètres
       formData.append('params', JSON.stringify(params));
 
-      // Simulation de progression (à remplacer par vraie API)
+      // Simulation de progression
       const progressInterval = setInterval(() => {
         setProgress(prev => {
           if (prev >= 90) return prev;
@@ -251,8 +257,8 @@ function AppProcessingPage({ app, onBack }) {
         });
       }, 500);
 
-      // TODO: Remplacer par vraie requête API
-      const response = await fetch(`http://localhost:8000/api/process/${app.id}`, {
+      // Appel API réel
+      const response = await fetch(`${API_URL}/api/process/${app.id}`, {
         method: 'POST',
         body: formData,
       });
