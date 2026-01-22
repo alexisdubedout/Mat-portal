@@ -16,35 +16,56 @@ def process(files: dict, params: dict) -> str:
     """
     Traite les fichiers de suivi des stocks
     """
+    print("=" * 50)
+    print("🚀 DÉBUT DU TRAITEMENT")
+    print("=" * 50)
+    
     file_tracking = files['tracking']
     file_export = files['export']
     export_date_str = params['export_date']
     
-    print(f"🔍 DEBUG - export_date_str reçu: '{export_date_str}'")
+    print(f"📁 Fichier tracking: {file_tracking}")
+    print(f"📁 Fichier export: {file_export}")
+    print(f"📅 Date: {export_date_str}")
     
-    # CORRECTION : Accepter les deux formats de date
+    # Accepter les deux formats de date
     try:
-        # Essayer d'abord le format français jj/mm/aaaa
         export_date = datetime.datetime.strptime(export_date_str, '%d/%m/%Y')
         print(f"✅ Date parsée (format FR): {export_date}")
     except ValueError:
         try:
-            # Si ça échoue, essayer le format ISO YYYY-MM-DD
             export_date = datetime.datetime.strptime(export_date_str, '%Y-%m-%d')
             print(f"✅ Date parsée (format ISO): {export_date}")
         except ValueError:
             raise ValueError("Format de date invalide. Utilisez jj/mm/aaaa ou YYYY-MM-DD")
     
-    # Fonction de progression (stub pour l'instant)
     def progress_callback(current, total):
         pass
     
-    # Exécuter les mises à jour
-    update_tracking(file_tracking, file_export, export_date, progress_callback)
-    update_monthly_tracking(file_tracking, export_date, progress_callback)
-    update_semestrial_tracking(file_tracking, export_date, progress_callback)
+    # Exécuter les mises à jour avec logs
+    try:
+        print("📊 Étape 1/3: update_tracking...")
+        update_tracking(file_tracking, file_export, export_date, progress_callback)
+        print("✅ update_tracking terminé")
+        
+        print("📊 Étape 2/3: update_monthly_tracking...")
+        update_monthly_tracking(file_tracking, export_date, progress_callback)
+        print("✅ update_monthly_tracking terminé")
+        
+        print("📊 Étape 3/3: update_semestrial_tracking...")
+        update_semestrial_tracking(file_tracking, export_date, progress_callback)
+        print("✅ update_semestrial_tracking terminé")
+        
+    except Exception as e:
+        print(f"❌ ERREUR: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
     
-    # Retourner le fichier de tracking mis à jour
+    print("=" * 50)
+    print(f"🎉 TRAITEMENT TERMINÉ - Fichier: {file_tracking}")
+    print("=" * 50)
+    
     return file_tracking
 
 
