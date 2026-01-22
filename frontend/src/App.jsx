@@ -187,7 +187,7 @@ function HomePage({ onSelectApp }) {
 
         <div className="mt-12 text-center">
           <p className="text-gray-500 text-sm">
-            💡 Astuce : Tous les fichiers sont traités de manière sécurisée et supprimés immédiatement après traitement
+            💡 Tous les fichiers sont traités de manière sécurisée et supprimés immédiatement après traitement
           </p>
         </div>
       </div>
