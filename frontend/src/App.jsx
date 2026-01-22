@@ -394,7 +394,7 @@ export default function App() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    Processors();
+    fetchProcessors();
   }, []);
 
   const fetchProcessors = async () => {
