@@ -19,8 +19,8 @@ const APPS_CONFIG = [
   },
   {
     id: 'sales-analysis',
-    name: 'ObsoMAT',
-    description: 'Aide à la génération de fiches obso',
+    name: 'Analyse des Ventes',
+    description: 'Génération de rapports et analyses de ventes mensuelles',
     icon: TrendingUp,
     color: 'from-green-500 to-green-600',
     files: [
@@ -32,8 +32,8 @@ const APPS_CONFIG = [
   },
   {
     id: 'data-merge',
-    name: 'Consolidation emplacements',
-    description: 'Blablabla',
+    name: 'Fusion de Données',
+    description: 'Consolidation de plusieurs fichiers Excel en un seul',
     icon: Database,
     color: 'from-purple-500 to-purple-600',
     files: [
@@ -175,8 +175,11 @@ function HomePage({ onSelectApp }) {
             <FileSpreadsheet className="w-12 h-12 text-white" />
           </div>
           <h1 className="text-5xl font-bold text-white mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-            Outils MCO Matériel
+            Portail de Traitement Excel
           </h1>
+          <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+            Sélectionnez une application pour automatiser vos traitements de fichiers Excel
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -268,11 +271,25 @@ function AppProcessingPage({ app, onBack }) {
         let errorData;
         try {
           errorData = await response.json();
+          console.error('❌ Erreur API complète:', JSON.stringify(errorData, null, 2));
         } catch {
           errorData = { detail: `Erreur HTTP ${response.status}` };
         }
-        console.error('❌ Erreur API:', errorData);
-        throw new Error(errorData.detail || 'Erreur lors du traitement');
+        
+        // Extraire le message d'erreur
+        let errorMessage = 'Erreur lors du traitement';
+        if (errorData.detail) {
+          if (Array.isArray(errorData.detail)) {
+            // FastAPI validation errors sont dans un tableau
+            errorMessage = errorData.detail.map(err => {
+              return `${err.loc ? err.loc.join(' > ') : ''}: ${err.msg}`;
+            }).join('\n');
+          } else if (typeof errorData.detail === 'string') {
+            errorMessage = errorData.detail;
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
       // Récupérer le nom du fichier depuis les headers de la réponse
