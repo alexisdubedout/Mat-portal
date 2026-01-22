@@ -1,0 +1,28 @@
+services:
+  # Backend API
+  - type: web
+    name: excel-processor-api
+    env: python
+    region: frankfurt
+    plan: free
+    branch: main
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FRONTEND_URL
+        sync: false
+
+  # Frontend static site
+  - type: web
+    name: excel-processor-frontend
+    env: static
+    region: frankfurt
+    plan: free
+    branch: main
+    buildCommand: "cd frontend && npm install && npm run build"
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
