@@ -230,7 +230,7 @@ function ProcessingPage({ processor, onBack }) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(`${API_URL}/api/process/${processor.id}`, {
+      const response = await (`${API_URL}/api/process/${processor.id}`, {
         method: 'POST',
         body: formData,
       });
@@ -394,17 +394,17 @@ export default function App() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchProcessors();
+    Processors();
   }, []);
 
   const fetchProcessors = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/processors`);
+      const response = await fetch(`${API_URL}/api/treatments`);
       if (!response.ok) {
-        throw new Error('Impossible de charger les processeurs');
+        throw new Error('Impossible de charger les traitements');
       }
       const data = await response.json();
-      setProcessors(data.processors || []);
+      setProcessors(data.treatments || []); // <-- ici on prend "treatments" et non "processors"
     } catch (err) {
       setError(err.message);
     } finally {
