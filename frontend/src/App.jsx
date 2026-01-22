@@ -150,9 +150,6 @@ function HomePage({ processors, onSelectProcessor }) {
           <h1 className="text-5xl font-bold text-white mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
             Web Apps Matériel
           </h1>
-          <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-            Sélectionnez une application pour automatiser vos traitements de fichiers Excel
-          </p>
         </div>
 
         {processors.length === 0 ? (
