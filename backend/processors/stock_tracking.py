@@ -15,23 +15,25 @@ import os
 def process(files: dict, params: dict) -> str:
     """
     Traite les fichiers de suivi des stocks
-    
-    Args:
-        files: {'tracking': path, 'export': path}
-        params: {'export_date': 'jj/mm/aaaa'}
-    
-    Returns:
-        Chemin du fichier résultat
     """
     file_tracking = files['tracking']
     file_export = files['export']
     export_date_str = params['export_date']
     
-    # Valider et parser la date
+    print(f"🔍 DEBUG - export_date_str reçu: '{export_date_str}'")
+    
+    # CORRECTION : Accepter les deux formats de date
     try:
+        # Essayer d'abord le format français jj/mm/aaaa
         export_date = datetime.datetime.strptime(export_date_str, '%d/%m/%Y')
+        print(f"✅ Date parsée (format FR): {export_date}")
     except ValueError:
-        raise ValueError("Format de date invalide. Utilisez jj/mm/aaaa")
+        try:
+            # Si ça échoue, essayer le format ISO YYYY-MM-DD
+            export_date = datetime.datetime.strptime(export_date_str, '%Y-%m-%d')
+            print(f"✅ Date parsée (format ISO): {export_date}")
+        except ValueError:
+            raise ValueError("Format de date invalide. Utilisez jj/mm/aaaa ou YYYY-MM-DD")
     
     # Fonction de progression (stub pour l'instant)
     def progress_callback(current, total):
