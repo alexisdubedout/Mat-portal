@@ -21,7 +21,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],  # ton frontend en prod ou localhost en dev
+    allow_origins=[
+        FRONTEND_URL,  # https://mat-portal-1.onrender.com
+        "http://localhost:5173",  # Pour développement local
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
