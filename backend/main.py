@@ -11,6 +11,8 @@ from pathlib import Path
 # Import des processeurs de scripts
 from processors import PROCESSORS_REGISTRY, process_files
 
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
 app = FastAPI(
     title="Excel Processing API",
     description="API pour le traitement de fichiers Excel",
