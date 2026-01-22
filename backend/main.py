@@ -69,15 +69,14 @@ async def get_treatments():
 async def process_treatment(
     treatment_id: str,
     params: str = Form(...),
-    **files: UploadFile
+    file_tracking: Optional[UploadFile] = File(None),
+    file_export: Optional[UploadFile] = File(None),
+    file_sales: Optional[UploadFile] = File(None),
+    file_file1: Optional[UploadFile] = File(None),
+    file_file2: Optional[UploadFile] = File(None),
 ):
     """
     Traite un fichier Excel selon le traitement sélectionné
-    
-    Args:
-        treatment_id: ID du traitement à appliquer
-        params: Paramètres JSON sous forme de string
-        **files: Fichiers uploadés (clés dynamiques selon le traitement)
     """
     
     # Vérifier que le traitement existe
@@ -92,42 +91,48 @@ async def process_treatment(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Paramètres JSON invalides")
     
-    # Créer un répertoire temporaire pour ce traitement
+    # Créer un répertoire temporaire
     temp_dir = tempfile.mkdtemp()
     
     try:
-        # Sauvegarder les fichiers uploadés temporairement
+        # Mapper les fichiers reçus
+        files_map = {
+            'tracking': file_tracking,
+            'export': file_export,
+            'sales': file_sales,
+            'file1': file_file1,
+            'file2': file_file2,
+        }
+        
+        # Sauvegarder les fichiers uploadés
         uploaded_files = {}
         
         for file_id, file_config in processor_config["files"].items():
-            # Récupérer le fichier depuis la requête
-            file_key = f"file_{file_id}"  # Convention de nommage
+            upload_file = files_map.get(file_id)
             
-            if file_key not in files:
+            if not upload_file:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Fichier manquant: {file_config['label']}"
                 )
-            
-            upload_file = files[file_key]
             
             # Valider l'extension
             file_ext = Path(upload_file.filename).suffix.lower()
             if file_ext not in ALLOWED_EXTENSIONS:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Extension non autorisée: {file_ext}. Extensions acceptées: {', '.join(ALLOWED_EXTENSIONS)}"
+                    detail=f"Extension non autorisée: {file_ext}"
                 )
             
-            # Valider la taille
+            # Lire et valider la taille
             content = await upload_file.read()
             if len(content) > MAX_FILE_SIZE:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Fichier trop volumineux. Taille maximale: {MAX_FILE_SIZE / (1024*1024)} MB"
+                    detail=f"Fichier trop volumineux"
                 )
             
-            # Sauvegarder le fichier
+            # Sauvegarder
             temp_file_path = os.path.join(temp_dir, f"{file_id}{file_ext}")
             with open(temp_file_path, 'wb') as f:
                 f.write(content)
@@ -135,11 +140,11 @@ async def process_treatment(
             uploaded_files[file_id] = temp_file_path
         
         # Valider les paramètres requis
-        for param_id, param_config in processor_config["params"].items():
+        for param_id in processor_config["params"].keys():
             if param_id not in params_dict:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Paramètre manquant: {param_config['label']}"
+                    detail=f"Paramètre manquant: {processor_config['params'][param_id]['label']}"
                 )
         
         # Exécuter le traitement
@@ -151,24 +156,24 @@ async def process_treatment(
                 detail="Le traitement n'a pas produit de fichier résultat"
             )
         
-        # Générer le nom du fichier résultat
-        result_filename = f"resultat_{treatment_id}_{params_dict.get('export_date', 'output')}.xlsx"
+        # Nom du fichier résultat
+        result_filename = f"resultat_{treatment_id}_{params_dict.get('export_date', 'output').replace('/', '-')}.xlsx"
         
         # Retourner le fichier
         return FileResponse(
             path=result_path,
             filename=result_filename,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            background=lambda: cleanup_temp_dir(temp_dir)  # Nettoyer après l'envoi
+            background=lambda: cleanup_temp_dir(temp_dir)
         )
         
     except HTTPException:
-        # Nettoyer immédiatement en cas d'erreur HTTP
         cleanup_temp_dir(temp_dir)
         raise
     except Exception as e:
-        # Nettoyer et renvoyer une erreur générique
         cleanup_temp_dir(temp_dir)
+        import traceback
+        traceback.print_exc()  # Pour debug sur Render
         raise HTTPException(status_code=500, detail=f"Erreur lors du traitement: {str(e)}")
 
 
