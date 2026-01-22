@@ -1,7 +1,48 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Upload, FileSpreadsheet, TrendingUp, Database, ArrowLeft, Calendar, Check, Loader2, Download, AlertCircle } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+// Configuration des applications disponibles
+const APPS_CONFIG = [
+  {
+    id: 'stock-tracking',
+    name: 'Suivi des Stocks',
+    description: 'Mise à jour automatique du suivi mensuel et semestriel des stocks',
+    icon: FileSpreadsheet,
+    color: 'from-blue-500 to-blue-600',
+    files: [
+      { id: 'tracking', label: 'Fichier de suivi', accept: '.xlsx,.xls' },
+      { id: 'export', label: "Fichier d'export", accept: '.xlsx,.xls' }
+    ],
+    params: [
+      { id: 'export_date', label: "Date d'export", type: 'date', placeholder: 'jj/mm/aaaa' }
+    ]
+  },
+  {
+    id: 'sales-analysis',
+    name: 'Analyse des Ventes',
+    description: 'Génération de rapports et analyses de ventes mensuelles',
+    icon: TrendingUp,
+    color: 'from-green-500 to-green-600',
+    files: [
+      { id: 'sales', label: 'Fichier des ventes', accept: '.xlsx,.xls' }
+    ],
+    params: [
+      { id: 'period', label: 'Période', type: 'text', placeholder: 'Ex: Q1 2024' }
+    ]
+  },
+  {
+    id: 'data-merge',
+    name: 'Fusion de Données',
+    description: 'Consolidation de plusieurs fichiers Excel en un seul',
+    icon: Database,
+    color: 'from-purple-500 to-purple-600',
+    files: [
+      { id: 'file1', label: 'Premier fichier', accept: '.xlsx,.xls' },
+      { id: 'file2', label: 'Deuxième fichier', accept: '.xlsx,.xls' }
+    ],
+    params: []
+  }
+];
 
 const FUNNY_MESSAGES = [
   "Décompte des claviers qui ont fait un plongeon dans une mer de café...",
@@ -15,41 +56,27 @@ const FUNNY_MESSAGES = [
   "Recensement des claviers qui ont décidé de faire une pause café prolongée..."
 ];
 
-// Composant Card pour chaque processeur
-function AppCard({ processor, onClick }) {
-  // Mapping des icônes et couleurs selon le nom du processeur
-  const getProcessorStyle = (name) => {
-    const lowerName = name.toLowerCase();
-    if (lowerName.includes('stock')) {
-      return { Icon: FileSpreadsheet, color: 'from-blue-500 to-blue-600' };
-    } else if (lowerName.includes('obso') || lowerName.includes('vente') || lowerName.includes('sale')) {
-      return { Icon: TrendingUp, color: 'from-green-500 to-green-600' };
-    } else if (lowerName.includes('merge') || lowerName.includes('fusion')) {
-      return { Icon: Database, color: 'from-purple-500 to-purple-600' };
-    }
-    return { Icon: FileSpreadsheet, color: 'from-indigo-500 to-indigo-600' };
-  };
-
-  const { Icon, color } = getProcessorStyle(processor.name);
-
+// Composant Card pour chaque application
+function AppCard({ app, onClick }) {
+  const Icon = app.icon;
   return (
     <div
       onClick={onClick}
       className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 p-6 cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/20 border border-gray-700 hover:border-blue-500/50"
     >
-      <div className={`absolute inset-0 bg-gradient-to-br ${color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
+      <div className={`absolute inset-0 bg-gradient-to-br ${app.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
       
       <div className="relative z-10">
-        <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${color} mb-4 group-hover:scale-110 transition-transform duration-300`}>
+        <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${app.color} mb-4 group-hover:scale-110 transition-transform duration-300`}>
           <Icon className="w-8 h-8 text-white" />
         </div>
         
         <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">
-          {processor.name}
+          {app.name}
         </h3>
         
         <p className="text-gray-400 text-sm leading-relaxed">
-          Cliquez pour traiter vos fichiers Excel
+          {app.description}
         </p>
       </div>
       
@@ -59,7 +86,7 @@ function AppCard({ processor, onClick }) {
 }
 
 // Composant Zone de dépôt de fichier
-function FileUploadZone({ file, onFileChange, label = "Fichier Excel" }) {
+function FileUploadZone({ fileConfig, file, onFileChange }) {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragOver = (e) => {
@@ -75,7 +102,7 @@ function FileUploadZone({ file, onFileChange, label = "Fichier Excel" }) {
     e.preventDefault();
     setIsDragging(false);
     const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile && (droppedFile.name.endsWith('.xlsx') || droppedFile.name.endsWith('.xls'))) {
+    if (droppedFile) {
       onFileChange(droppedFile);
     }
   };
@@ -90,7 +117,7 @@ function FileUploadZone({ file, onFileChange, label = "Fichier Excel" }) {
   return (
     <div className="space-y-2">
       <label className="block text-sm font-medium text-gray-300">
-        {label}
+        {fileConfig.label}
       </label>
       
       <div
@@ -107,7 +134,7 @@ function FileUploadZone({ file, onFileChange, label = "Fichier Excel" }) {
       >
         <input
           type="file"
-          accept=".xlsx,.xls"
+          accept={fileConfig.accept}
           onChange={handleFileInput}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
@@ -129,7 +156,7 @@ function FileUploadZone({ file, onFileChange, label = "Fichier Excel" }) {
               <p className="text-gray-400">
                 Glissez votre fichier ici ou <span className="text-blue-400">cliquez pour parcourir</span>
               </p>
-              <p className="text-gray-600 text-sm mt-1">.xlsx, .xls</p>
+              <p className="text-gray-600 text-sm mt-1">{fileConfig.accept}</p>
             </>
           )}
         </div>
@@ -139,7 +166,7 @@ function FileUploadZone({ file, onFileChange, label = "Fichier Excel" }) {
 }
 
 // Page d'accueil - Portail
-function HomePage({ processors, onSelectProcessor }) {
+function HomePage({ onSelectApp }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       <div className="max-w-7xl mx-auto px-4 py-12">
@@ -148,26 +175,18 @@ function HomePage({ processors, onSelectProcessor }) {
             <FileSpreadsheet className="w-12 h-12 text-white" />
           </div>
           <h1 className="text-5xl font-bold text-white mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-            Web Apps Matériel
+            Portail de Traitement Excel
           </h1>
+          <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+            Sélectionnez une application pour automatiser vos traitements de fichiers Excel
+          </p>
         </div>
 
-        {processors.length === 0 ? (
-          <div className="text-center py-12">
-            <Loader2 className="w-12 h-12 text-gray-500 animate-spin mx-auto mb-4" />
-            <p className="text-gray-400">Chargement des processeurs...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {processors.map((processor) => (
-              <AppCard
-                key={processor.id}
-                processor={processor}
-                onClick={() => onSelectProcessor(processor)}
-              />
-            ))}
-          </div>
-        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {APPS_CONFIG.map((app) => (
+            <AppCard key={app.id} app={app} onClick={() => onSelectApp(app)} />
+          ))}
+        </div>
 
         <div className="mt-12 text-center">
           <p className="text-gray-500 text-sm">
@@ -179,32 +198,32 @@ function HomePage({ processors, onSelectProcessor }) {
   );
 }
 
-// Page de traitement d'un processeur
-function ProcessingPage({ processor, onBack }) {
-  const [file, setFile] = useState(null);
+// Page de traitement d'une application
+function AppProcessingPage({ app, onBack }) {
+  const [files, setFiles] = useState({});
+  const [params, setParams] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [funnyMessage, setFunnyMessage] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
-  const getProcessorStyle = (name) => {
-    const lowerName = name.toLowerCase();
-    if (lowerName.includes('stock')) {
-      return { Icon: FileSpreadsheet, color: 'from-blue-500 to-blue-600' };
-    } else if (lowerName.includes('obso') || lowerName.includes('vente') || lowerName.includes('sale')) {
-      return { Icon: TrendingUp, color: 'from-green-500 to-green-600' };
-    } else if (lowerName.includes('merge') || lowerName.includes('fusion')) {
-      return { Icon: Database, color: 'from-purple-500 to-purple-600' };
-    }
-    return { Icon: FileSpreadsheet, color: 'from-indigo-500 to-indigo-600' };
+  const handleFileChange = (fileId, file) => {
+    setFiles(prev => ({ ...prev, [fileId]: file }));
+    setError(null);
   };
 
-  const { Icon, color } = getProcessorStyle(processor.name);
+  const handleParamChange = (paramId, value) => {
+    setParams(prev => ({ ...prev, [paramId]: value }));
+  };
+
+  const canProcess = () => {
+    const allFilesUploaded = app.files.every(f => files[f.id]);
+    const allParamsFilled = app.params.every(p => params[p.id]);
+    return allFilesUploaded && allParamsFilled;
+  };
 
   const handleProcess = async () => {
-    if (!file) return;
-
     setIsProcessing(true);
     setProgress(0);
     setError(null);
@@ -215,19 +234,28 @@ function ProcessingPage({ processor, onBack }) {
       setFunnyMessage(FUNNY_MESSAGES[Math.floor(Math.random() * FUNNY_MESSAGES.length)]);
     }, 3000);
 
-    // Animation de progression
-    const progressInterval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 90) return prev;
-        return prev + Math.random() * 15;
-      });
-    }, 500);
-
     try {
+      // Préparer FormData
       const formData = new FormData();
-      formData.append('file', file);
+      
+      // Ajouter les fichiers
+      Object.entries(files).forEach(([key, file]) => {
+        formData.append(key, file);
+      });
+      
+      // Ajouter les paramètres
+      formData.append('params', JSON.stringify(params));
 
-      const response = await (`${API_URL}/api/process/${processor.id}`, {
+      // Simulation de progression (à remplacer par vraie API)
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 90) return prev;
+          return prev + Math.random() * 15;
+        });
+      }, 500);
+
+      // TODO: Remplacer par vraie requête API
+      const response = await fetch(`http://localhost:8000/api/process/${app.id}`, {
         method: 'POST',
         body: formData,
       });
@@ -245,27 +273,26 @@ function ProcessingPage({ processor, onBack }) {
       setProgress(100);
       setResult({
         url,
-        filename: `processed_${file.name}`
+        filename: `resultat_${app.id}_${Date.now()}.xlsx`
       });
 
     } catch (err) {
-      setError(err.message || 'Une erreur est survenue lors du traitement');
+      setError(err.message || 'Une erreur est survenue');
     } finally {
       clearInterval(messageInterval);
-      clearInterval(progressInterval);
       setIsProcessing(false);
       setFunnyMessage('');
     }
   };
 
   const handleDownload = () => {
-    if (result) {
-      const link = document.createElement('a');
-      link.href = result.url;
-      link.download = result.filename;
-      link.click();
-    }
+    const link = document.createElement('a');
+    link.href = result.url;
+    link.download = result.filename;
+    link.click();
   };
+
+  const Icon = app.icon;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -281,31 +308,59 @@ function ProcessingPage({ processor, onBack }) {
           </button>
 
           <div className="flex items-center gap-4">
-            <div className={`p-4 rounded-2xl bg-gradient-to-br ${color}`}>
+            <div className={`p-4 rounded-2xl bg-gradient-to-br ${app.color}`}>
               <Icon className="w-10 h-10 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-white">{processor.name}</h1>
-              <p className="text-gray-400 mt-1">Traitement automatisé de fichiers Excel</p>
+              <h1 className="text-3xl font-bold text-white">{app.name}</h1>
+              <p className="text-gray-400 mt-1">{app.description}</p>
             </div>
           </div>
         </div>
 
         {/* Formulaire */}
         <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-gray-700 shadow-2xl">
-          {/* Upload de fichier */}
+          {/* Upload de fichiers */}
           <div className="space-y-6 mb-8">
             <h2 className="text-xl font-semibold text-white flex items-center gap-2">
               <FileSpreadsheet className="w-6 h-6 text-blue-400" />
-              Fichier à traiter
+              Fichiers requis
             </h2>
             
-            <FileUploadZone
-              file={file}
-              onFileChange={setFile}
-              label="Sélectionnez votre fichier Excel"
-            />
+            {app.files.map((fileConfig) => (
+              <FileUploadZone
+                key={fileConfig.id}
+                fileConfig={fileConfig}
+                file={files[fileConfig.id]}
+                onFileChange={(file) => handleFileChange(fileConfig.id, file)}
+              />
+            ))}
           </div>
+
+          {/* Paramètres */}
+          {app.params.length > 0 && (
+            <div className="space-y-6 mb-8">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                <Calendar className="w-6 h-6 text-purple-400" />
+                Paramètres
+              </h2>
+              
+              {app.params.map((param) => (
+                <div key={param.id} className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-300">
+                    {param.label}
+                  </label>
+                  <input
+                    type={param.type}
+                    placeholder={param.placeholder}
+                    value={params[param.id] || ''}
+                    onChange={(e) => handleParamChange(param.id, e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all outline-none"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Erreur */}
           {error && (
@@ -321,10 +376,10 @@ function ProcessingPage({ processor, onBack }) {
           {/* Bouton de traitement */}
           <button
             onClick={handleProcess}
-            disabled={!file || isProcessing}
+            disabled={!canProcess() || isProcessing}
             className={`w-full py-4 rounded-xl font-semibold text-white transition-all duration-300 flex items-center justify-center gap-3 ${
-              file && !isProcessing
-                ? `bg-gradient-to-r ${color} hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50`
+              canProcess() && !isProcessing
+                ? `bg-gradient-to-r ${app.color} hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50`
                 : 'bg-gray-700 cursor-not-allowed opacity-50'
             }`}
           >
@@ -384,63 +439,12 @@ function ProcessingPage({ processor, onBack }) {
 }
 
 // Application principale
-export default function App() {
-  const [processors, setProcessors] = useState([]);
-  const [currentProcessor, setCurrentProcessor] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export default function ExcelProcessingPortal() {
+  const [currentApp, setCurrentApp] = useState(null);
 
-  useEffect(() => {
-    fetchProcessors();
-  }, []);
-
-  const fetchProcessors = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/treatments`);
-      if (!response.ok) {
-        throw new Error('Impossible de charger les traitements');
-      }
-      const data = await response.json();
-      setProcessors(data.treatments || []); // <-- ici on prend "treatments" et non "processors"
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <p className="text-red-400 font-medium mb-2">Erreur de connexion</p>
-          <p className="text-gray-400">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  return currentProcessor ? (
-    <ProcessingPage
-      processor={currentProcessor}
-      onBack={() => setCurrentProcessor(null)}
-    />
+  return currentApp ? (
+    <AppProcessingPage app={currentApp} onBack={() => setCurrentApp(null)} />
   ) : (
-    <HomePage
-      processors={processors}
-      onSelectProcessor={setCurrentProcessor}
-    />
+    <HomePage onSelectApp={setCurrentApp} />
   );
 }
