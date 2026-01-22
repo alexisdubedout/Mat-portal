@@ -35,7 +35,7 @@ def process(files: dict, params: dict) -> str:
     
     # Fonction de progression (stub pour l'instant)
     def progress_callback(current, total):
-        pass  # Peut être utilisé plus tard pour WebSocket
+        pass
     
     # Exécuter les mises à jour
     update_tracking(file_tracking, file_export, export_date, progress_callback)
@@ -157,197 +157,227 @@ def update_tracking(file_tracking, file_export, export_date, progress_callback):
     
     df_tracking = format_date_columns(df_tracking)
     
-    with pd.ExcelWriter(file_tracking, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
-        df_tracking.to_excel(writer, sheet_name='Liste de Stock', index=False)
-    
+    # CORRECTION: Tout faire en une seule opération avec le workbook
     workbook = load_workbook(file_tracking)
-    stock_list_sheet = workbook['Liste de Stock']
-    style_headers(stock_list_sheet)
+    
+    # Supprimer et recréer la feuille
+    if 'Liste de Stock' in workbook.sheetnames:
+        del workbook['Liste de Stock']
+    
+    worksheet = workbook.create_sheet('Liste de Stock', 0)
+    
+    # Écrire les données
+    for r_idx, row in enumerate(dataframe_to_rows(df_tracking, index=False, header=True), start=1):
+        for c_idx, value in enumerate(row, start=1):
+            worksheet.cell(row=r_idx, column=c_idx, value=value)
+    
+    # Appliquer le style
+    style_headers(worksheet)
+    
+    # Sauvegarder et fermer
     workbook.save(file_tracking)
+    workbook.close()
 
 
 def update_monthly_tracking(file_tracking, export_date, progress_callback):
     """Met à jour le suivi mensuel"""
+    # CORRECTION: Charger le workbook une seule fois
     workbook = load_workbook(file_tracking)
-    suivi_mensuel_sheet_name = find_sheet(workbook, 'suivi mensuel')
     
-    if not suivi_mensuel_sheet_name:
-        raise ValueError("Aucun onglet 'Suivi Mensuel' trouvé")
-    
-    worksheet = workbook[suivi_mensuel_sheet_name]
-    clear_worksheet(worksheet)
-    
-    df_tracking = pd.read_excel(file_tracking, sheet_name='Liste de Stock')
-    export_date_str = export_date.strftime('%d/%m/%Y')
-    
-    if export_date_str not in df_tracking.columns:
+    try:
+        suivi_mensuel_sheet_name = find_sheet(workbook, 'suivi mensuel')
+        
+        if not suivi_mensuel_sheet_name:
+            workbook.close()
+            raise ValueError("Aucun onglet 'Suivi Mensuel' trouvé")
+        
+        worksheet = workbook[suivi_mensuel_sheet_name]
+        clear_worksheet(worksheet)
+        
+        df_tracking = pd.read_excel(file_tracking, sheet_name='Liste de Stock')
+        export_date_str = export_date.strftime('%d/%m/%Y')
+        
+        if export_date_str not in df_tracking.columns:
+            worksheet.insert_rows(2)
+            worksheet['A3'] = "Pas de données disponibles pour le mois."
+            worksheet.merge_cells('A3:F3')
+            worksheet['A3'].alignment = Alignment(horizontal='center')
+            worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+            workbook.save(file_tracking)
+            return
+        
+        col_idx = df_tracking.columns.get_loc(export_date_str)
+        
+        if col_idx < 1:
+            worksheet.insert_rows(2)
+            worksheet['A3'] = "Pas de données disponibles pour le mois."
+            worksheet.merge_cells('A3:F3')
+            worksheet['A3'].alignment = Alignment(horizontal='center')
+            worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+            workbook.save(file_tracking)
+            return
+        
+        previous_month_col = df_tracking.columns[col_idx - 1]
+        
+        if not is_valid_date(previous_month_col):
+            worksheet.insert_rows(2)
+            worksheet['A3'] = "Pas de données disponibles pour le mois."
+            worksheet.merge_cells('A3:F3')
+            worksheet['A3'].alignment = Alignment(horizontal='center')
+            worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+            workbook.save(file_tracking)
+            return
+        
+        df_tracking['Variation'] = df_tracking[export_date_str] - df_tracking[previous_month_col]
+        df_tracking['Quantité actuelle'] = df_tracking[export_date_str]
+        
+        variations = df_tracking[df_tracking['Variation'] != 0]
+        variations = variations[['Codification DSNA', 'Désignation', 'Magasin', 'Description', 'Variation', 'Quantité actuelle']]
+        
+        start_date = datetime.datetime.strptime(previous_month_col, '%d/%m/%Y').strftime('%d/%m/%Y')
+        end_date = datetime.datetime.strptime(export_date_str, '%d/%m/%Y').strftime('%d/%m/%Y')
+        period_study = f"Variation entre le {start_date} et le {end_date}"
+        
         worksheet.insert_rows(2)
-        worksheet['A3'] = "Pas de données disponibles pour le mois."
-        worksheet.merge_cells('A3:F3')
-        worksheet['A3'].alignment = Alignment(horizontal='center')
-        worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+        worksheet['A1'] = period_study
+        worksheet.merge_cells('A1:F1')
+        worksheet['A1'].alignment = Alignment(horizontal='center')
+        worksheet['A1'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+        
+        if not variations.empty:
+            for r_idx, row in enumerate(dataframe_to_rows(variations, index=False, header=False), start=3):
+                for c_idx, value in enumerate(row, start=1):
+                    cell = worksheet.cell(row=r_idx, column=c_idx, value=value)
+                    if pd.notna(value) and c_idx == len(variations.columns):  # Dernière colonne
+                        if value <= 5:
+                            cell.fill = PatternFill(start_color='FFCCCC', end_color='FFCCCC', fill_type='solid')
+                        elif value <= 10:
+                            cell.fill = PatternFill(start_color='FFDAB9', end_color='FFDAB9', fill_type='solid')
+        else:
+            worksheet.insert_rows(3)
+            worksheet['A3'] = "Aucune variation ce mois-ci"
+            worksheet.merge_cells('A3:F3')
+            worksheet['A3'].alignment = Alignment(horizontal='center')
+            worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+        
+        headers = ['Codification DSNA', 'Désignation', 'Magasin', 'Description', 'Variation', 'Quantité actuelle']
+        for col_num, header in enumerate(headers, 1):
+            cell = worksheet.cell(row=2, column=col_num, value=header)
+            cell.fill = PatternFill(start_color='003366', end_color='003366', fill_type='solid')
+            cell.font = Font(color='FFFFFF', bold=True)
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = Border(
+                left=Side(border_style='thin', color='FFFFFF'),
+                right=Side(border_style='thin', color='FFFFFF'),
+                top=Side(border_style='thin', color='FFFFFF'),
+                bottom=Side(border_style='thin', color='FFFFFF')
+            )
+        
+        # CORRECTION: Sauvegarder et fermer
         workbook.save(file_tracking)
-        return
-    
-    col_idx = df_tracking.columns.get_loc(export_date_str)
-    
-    if col_idx < 1:
-        worksheet.insert_rows(2)
-        worksheet['A3'] = "Pas de données disponibles pour le mois."
-        worksheet.merge_cells('A3:F3')
-        worksheet['A3'].alignment = Alignment(horizontal='center')
-        worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
-        workbook.save(file_tracking)
-        return
-    
-    previous_month_col = df_tracking.columns[col_idx - 1]
-    
-    if not is_valid_date(previous_month_col):
-        worksheet.insert_rows(2)
-        worksheet['A3'] = "Pas de données disponibles pour le mois."
-        worksheet.merge_cells('A3:F3')
-        worksheet['A3'].alignment = Alignment(horizontal='center')
-        worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
-        workbook.save(file_tracking)
-        return
-    
-    df_tracking['Variation'] = df_tracking[export_date_str] - df_tracking[previous_month_col]
-    df_tracking['Quantité actuelle'] = df_tracking[export_date_str]
-    
-    variations = df_tracking[df_tracking['Variation'] != 0]
-    variations = variations[['Codification DSNA', 'Désignation', 'Magasin', 'Description', 'Variation', 'Quantité actuelle']]
-    
-    start_date = datetime.datetime.strptime(previous_month_col, '%d/%m/%Y').strftime('%d/%m/%Y')
-    end_date = datetime.datetime.strptime(export_date_str, '%d/%m/%Y').strftime('%d/%m/%Y')
-    period_study = f"Variation entre le {start_date} et le {end_date}"
-    
-    worksheet.insert_rows(2)
-    worksheet['A1'] = period_study
-    worksheet.merge_cells('A1:F1')
-    worksheet['A1'].alignment = Alignment(horizontal='center')
-    worksheet['A1'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
-    
-    if not variations.empty:
-        for r_idx, row in enumerate(dataframe_to_rows(variations, index=False, header=False), start=3):
-            for c_idx, value in enumerate(row, start=1):
-                cell = worksheet.cell(row=r_idx, column=c_idx, value=value)
-                if pd.notna(value) and c_idx == variations.columns.get_loc('Quantité actuelle') + 1:
-                    if value <= 5:
-                        cell.fill = PatternFill(start_color='FFCCCC', end_color='FFCCCC', fill_type='solid')
-                    elif value <= 10:
-                        cell.fill = PatternFill(start_color='FFDAB9', end_color='FFDAB9', fill_type='solid')
-    else:
-        worksheet.insert_rows(3)
-        worksheet['A3'] = "Aucune variation ce mois-ci"
-        worksheet.merge_cells('A3:F3')
-        worksheet['A3'].alignment = Alignment(horizontal='center')
-        worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
-    
-    headers = ['Codification DSNA', 'Désignation', 'Magasin', 'Description', 'Variation', 'Quantité actuelle']
-    for col_num, header in enumerate(headers, 1):
-        cell = worksheet.cell(row=2, column=col_num, value=header)
-        cell.fill = PatternFill(start_color='003366', end_color='003366', fill_type='solid')
-        cell.font = Font(color='FFFFFF', bold=True)
-        cell.alignment = Alignment(horizontal='center')
-        cell.border = Border(
-            left=Side(border_style='thin', color='FFFFFF'),
-            right=Side(border_style='thin', color='FFFFFF'),
-            top=Side(border_style='thin', color='FFFFFF'),
-            bottom=Side(border_style='thin', color='FFFFFF')
-        )
-    
-    workbook.save(file_tracking)
+        
+    finally:
+        # IMPORTANT: Toujours fermer le workbook
+        workbook.close()
 
 
 def update_semestrial_tracking(file_tracking, export_date, progress_callback):
     """Met à jour le suivi semestriel"""
+    # CORRECTION: Même pattern que monthly
     workbook = load_workbook(file_tracking)
-    suivi_semestrial_sheet_name = find_sheet(workbook, 'suivi semestriel')
     
-    if not suivi_semestrial_sheet_name:
-        raise ValueError("Aucun onglet 'Suivi Semestriel' trouvé")
-    
-    worksheet = workbook[suivi_semestrial_sheet_name]
-    clear_worksheet(worksheet)
-    
-    df_tracking = pd.read_excel(file_tracking, sheet_name='Liste de Stock')
-    export_date_str = export_date.strftime('%d/%m/%Y')
-    
-    if export_date_str not in df_tracking.columns:
+    try:
+        suivi_semestrial_sheet_name = find_sheet(workbook, 'suivi semestriel')
+        
+        if not suivi_semestrial_sheet_name:
+            workbook.close()
+            raise ValueError("Aucun onglet 'Suivi Semestriel' trouvé")
+        
+        worksheet = workbook[suivi_semestrial_sheet_name]
+        clear_worksheet(worksheet)
+        
+        df_tracking = pd.read_excel(file_tracking, sheet_name='Liste de Stock')
+        export_date_str = export_date.strftime('%d/%m/%Y')
+        
+        if export_date_str not in df_tracking.columns:
+            worksheet.insert_rows(2)
+            worksheet['A3'] = "Pas de données disponibles pour le semestre."
+            worksheet.merge_cells('A3:F3')
+            worksheet['A3'].alignment = Alignment(horizontal='center')
+            worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+            workbook.save(file_tracking)
+            return
+        
+        col_idx = df_tracking.columns.get_loc(export_date_str)
+        
+        if col_idx < 6:
+            worksheet.insert_rows(2)
+            worksheet['A3'] = "Pas de données disponibles pour le semestre."
+            worksheet.merge_cells('A3:F3')
+            worksheet['A3'].alignment = Alignment(horizontal='center')
+            worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+            workbook.save(file_tracking)
+            return
+        
+        previous_semester_col = df_tracking.columns[col_idx - 6]
+        
+        if not is_valid_date(previous_semester_col):
+            worksheet.insert_rows(2)
+            worksheet['A3'] = "Pas de données disponibles pour le semestre."
+            worksheet.merge_cells('A3:F3')
+            worksheet['A3'].alignment = Alignment(horizontal='center')
+            worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+            workbook.save(file_tracking)
+            return
+        
+        df_tracking['Variation'] = df_tracking[export_date_str] - df_tracking[previous_semester_col]
+        df_tracking['Quantité actuelle'] = df_tracking[export_date_str]
+        
+        variations = df_tracking[df_tracking['Variation'] != 0]
+        variations = variations[['Codification DSNA', 'Désignation', 'Magasin', 'Description', 'Variation', 'Quantité actuelle']]
+        
+        start_date = datetime.datetime.strptime(previous_semester_col, '%d/%m/%Y').strftime('%d/%m/%Y')
+        end_date = datetime.datetime.strptime(export_date_str, '%d/%m/%Y').strftime('%d/%m/%Y')
+        period_study = f"Variation entre le {start_date} et le {end_date}"
+        
         worksheet.insert_rows(2)
-        worksheet['A3'] = "Pas de données disponibles pour le semestre."
-        worksheet.merge_cells('A3:F3')
-        worksheet['A3'].alignment = Alignment(horizontal='center')
-        worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+        worksheet['A1'] = period_study
+        worksheet.merge_cells('A1:F1')
+        worksheet['A1'].alignment = Alignment(horizontal='center')
+        worksheet['A1'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+        
+        if not variations.empty:
+            for r_idx, row in enumerate(dataframe_to_rows(variations, index=False, header=False), start=3):
+                for c_idx, value in enumerate(row, start=1):
+                    cell = worksheet.cell(row=r_idx, column=c_idx, value=value)
+                    if pd.notna(value) and c_idx == len(variations.columns):
+                        if value <= 5:
+                            cell.fill = PatternFill(start_color='FFCCCC', end_color='FFCCCC', fill_type='solid')
+                        elif value <= 10:
+                            cell.fill = PatternFill(start_color='FFDAB9', end_color='FFDAB9', fill_type='solid')
+        else:
+            worksheet.insert_rows(3)
+            worksheet['A3'] = "Aucune variation ce semestre"
+            worksheet.merge_cells('A3:F3')
+            worksheet['A3'].alignment = Alignment(horizontal='center')
+            worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+        
+        headers = ['Codification DSNA', 'Désignation', 'Magasin', 'Description', 'Variation', 'Quantité actuelle']
+        for col_num, header in enumerate(headers, 1):
+            cell = worksheet.cell(row=2, column=col_num, value=header)
+            cell.fill = PatternFill(start_color='003366', end_color='003366', fill_type='solid')
+            cell.font = Font(color='FFFFFF', bold=True)
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = Border(
+                left=Side(border_style='thin', color='FFFFFF'),
+                right=Side(border_style='thin', color='FFFFFF'),
+                top=Side(border_style='thin', color='FFFFFF'),
+                bottom=Side(border_style='thin', color='FFFFFF')
+            )
+        
+        # CORRECTION: Sauvegarder et fermer
         workbook.save(file_tracking)
-        return
-    
-    col_idx = df_tracking.columns.get_loc(export_date_str)
-    
-    # Vérifier qu'on a au moins 6 colonnes avant pour calculer le semestre précédent
-    if col_idx < 6:
-        worksheet.insert_rows(2)
-        worksheet['A3'] = "Pas de données disponibles pour le semestre."
-        worksheet.merge_cells('A3:F3')
-        worksheet['A3'].alignment = Alignment(horizontal='center')
-        worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
-        workbook.save(file_tracking)
-        return
-    
-    previous_semester_col = df_tracking.columns[col_idx - 6]
-    
-    if not is_valid_date(previous_semester_col):
-        worksheet.insert_rows(2)
-        worksheet['A3'] = "Pas de données disponibles pour le semestre."
-        worksheet.merge_cells('A3:F3')
-        worksheet['A3'].alignment = Alignment(horizontal='center')
-        worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
-        workbook.save(file_tracking)
-        return
-    
-    df_tracking['Variation'] = df_tracking[export_date_str] - df_tracking[previous_semester_col]
-    df_tracking['Quantité actuelle'] = df_tracking[export_date_str]
-    
-    variations = df_tracking[df_tracking['Variation'] != 0]
-    variations = variations[['Codification DSNA', 'Désignation', 'Magasin', 'Description', 'Variation', 'Quantité actuelle']]
-    
-    start_date = datetime.datetime.strptime(previous_semester_col, '%d/%m/%Y').strftime('%d/%m/%Y')
-    end_date = datetime.datetime.strptime(export_date_str, '%d/%m/%Y').strftime('%d/%m/%Y')
-    period_study = f"Variation entre le {start_date} et le {end_date}"
-    
-    worksheet.insert_rows(2)
-    worksheet['A1'] = period_study
-    worksheet.merge_cells('A1:F1')
-    worksheet['A1'].alignment = Alignment(horizontal='center')
-    worksheet['A1'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
-    
-    if not variations.empty:
-        for r_idx, row in enumerate(dataframe_to_rows(variations, index=False, header=False), start=3):
-            for c_idx, value in enumerate(row, start=1):
-                cell = worksheet.cell(row=r_idx, column=c_idx, value=value)
-                if pd.notna(value) and c_idx == variations.columns.get_loc('Quantité actuelle') + 1:
-                    if value <= 5:
-                        cell.fill = PatternFill(start_color='FFCCCC', end_color='FFCCCC', fill_type='solid')
-                    elif value <= 10:
-                        cell.fill = PatternFill(start_color='FFDAB9', end_color='FFDAB9', fill_type='solid')
-    else:
-        worksheet.insert_rows(3)
-        worksheet['A3'] = "Aucune variation ce semestre"
-        worksheet.merge_cells('A3:F3')
-        worksheet['A3'].alignment = Alignment(horizontal='center')
-        worksheet['A3'].fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
-    
-    headers = ['Codification DSNA', 'Désignation', 'Magasin', 'Description', 'Variation', 'Quantité actuelle']
-    for col_num, header in enumerate(headers, 1):
-        cell = worksheet.cell(row=2, column=col_num, value=header)
-        cell.fill = PatternFill(start_color='003366', end_color='003366', fill_type='solid')
-        cell.font = Font(color='FFFFFF', bold=True)
-        cell.alignment = Alignment(horizontal='center')
-        cell.border = Border(
-            left=Side(border_style='thin', color='FFFFFF'),
-            right=Side(border_style='thin', color='FFFFFF'),
-            top=Side(border_style='thin', color='FFFFFF'),
-            bottom=Side(border_style='thin', color='FFFFFF')
-        )
-    
-    workbook.save(file_tracking)
+        
+    finally:
+        # IMPORTANT: Toujours fermer le workbook
+        workbook.close()
