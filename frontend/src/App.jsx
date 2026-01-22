@@ -19,8 +19,8 @@ const APPS_CONFIG = [
   },
   {
     id: 'sales-analysis',
-    name: 'Analyse des Ventes',
-    description: 'Génération de rapports et analyses de ventes mensuelles',
+    name: 'ObsoGMAT',
+    description: 'Aide aux fiches obso',
     icon: TrendingUp,
     color: 'from-green-500 to-green-600',
     files: [
@@ -32,8 +32,8 @@ const APPS_CONFIG = [
   },
   {
     id: 'data-merge',
-    name: 'Fusion de Données',
-    description: 'Consolidation de plusieurs fichiers Excel en un seul',
+    name: 'Consolidation emplacement',
+    description: 'Blablabla',
     icon: Database,
     color: 'from-purple-500 to-purple-600',
     files: [
