@@ -177,9 +177,6 @@ function HomePage({ onSelectApp }) {
           <h1 className="text-5xl font-bold text-white mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
             Outils MCO matériel
           </h1>
-          <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-            Sélectionnez une application pour automatiser vos traitements de fichiers Excel
-          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
